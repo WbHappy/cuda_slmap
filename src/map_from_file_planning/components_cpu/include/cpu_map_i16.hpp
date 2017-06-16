@@ -29,6 +29,8 @@ public:
 
     void display(std::string win_name);
 
+    void drawEpiosde(std::string win_name, const uint8_t brightness, const int x1, const int y1, const int x2, const int y2);
+
     void info();
 };
 

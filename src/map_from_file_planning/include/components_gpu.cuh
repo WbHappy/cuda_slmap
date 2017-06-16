@@ -1,3 +1,4 @@
+#include "../components_gpu/include/gpu_defines.cuh"
 #include "../components_gpu/include/gpu_errchk.cuh"
 #include "../components_gpu/include/gpu_map_i16.cuh"
 #include "../components_gpu/include/gpu_map_ui16.cuh"

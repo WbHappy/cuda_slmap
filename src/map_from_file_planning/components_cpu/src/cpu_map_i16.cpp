@@ -97,11 +97,29 @@ void CpuMapI16::display(std::string win_name)
         }
     }
 
+    cv::namedWindow(win_name, 0);
+    cv::imshow(win_name, img);
+    cv::waitKey(10);
+}
+
+void CpuMapI16::drawEpiosde(std::string win_name, const uint8_t brightness, const int x1, const int y1, const int x2, const int y2)
+{
+
+    cv::Point p1;
+    p1.x = y1;
+    p1.y = x1;
+
+    cv::Point p2;
+    p2.x = y2;
+    p2.y = x2;
+
+    cv::line(img, p1, p2, brightness, 1);
 
     cv::namedWindow(win_name, 0);
     cv::imshow(win_name, img);
     cv::waitKey(10);
 }
+
 
 void CpuMapI16::info()
 {

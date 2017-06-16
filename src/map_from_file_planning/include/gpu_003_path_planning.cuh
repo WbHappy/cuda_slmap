@@ -8,8 +8,10 @@
 #include "components_gpu.cuh"
 
 #include <cuda.h>
+#include <curand.h>
+#include <curand_kernel.h>
 
-#define PLANNER_EPISODE_DIVISIONS 1     // Number of new points created during division (1 -> episode is divided on 2 parts)
+#include <sys/time.h>
 
 class GpuPathPlanning
 {
@@ -18,6 +20,8 @@ class GpuPathPlanning
 
     GpuPath* dev_path;                 // GPU memory for storing paths
     GpuPath* host_path;                // CPU memory for storing paths
+
+    timeval host_time;
 
     float* dev_debug;
     float* host_debug;
@@ -49,14 +53,14 @@ public:
 // GPU function to copy path between two pointers
 // Use single thread to copy points
 __device__ inline void copyPath_Singlethread(
-    GpuPath *new_path,
-    GpuPath *old_path);
+    GpuPath *path_output,
+    GpuPath *path_input);
 
 // GPU function to copy path between two pointers
 // Use multiple threads in on block to copy path
 __device__ inline void copyPath_Multithread(
-    GpuPath *new_path,
-    GpuPath *old_path,
+    GpuPath *path_output,
+    GpuPath *path_input,
     int sid,
     int threads_no);
 
@@ -67,36 +71,41 @@ __device__ inline GpuPathPoint generateRandomPoint(
     int ep_div_no,
     int ep_div_total,
     int sid,
-    int threads_no);
+    int threads_no,
+    int global_seed);
 
 __device__ inline void addPathPoints_Multithread(
-    GpuPath *new_path,
-    GpuPath *old_path,
+    GpuPath *path_output,
+    GpuPath *path_input,
     GpuPathPoint *new_points,
     int sid,
     int threads_no,
-    int new_points_index,
-    float *dev_debug);
+    int new_points_index);
 
 // Calcualtes cost of traveling via episode
 __device__ inline int calcEpisodeCost_Singlethread(
     int16_t *costmap,
     const int map_x,
     const int map_y,
-    const GpuPathPoint p1,
-    const GpuPathPoint p2,
+    const GpuPathPoint *p1,
+    const GpuPathPoint *p2,
     const int sampling);
 
-__device__ inline void divideEpisode_Multithread(
+//aqq
+__device__ inline void dividePath_Multithread(
     int16_t *costmap,
     const int map_x,
     const int map_y,
-    const GpuPathPoint p1,
-    const GpuPathPoint p2,
+    GpuPath *path_input,
+    GpuPath *path_output,
+    GpuPathPoint *new_points_buff,
+    uint32_t *new_points_costs,
+    uint32_t *local_seed,
     const int sampling,
     const int sid,
     const int threads_no);
 
+//aqq
 __global__ void pathPlanningKernel(
     GpuPath* dev_paths,
     int16_t *costmap,
@@ -107,7 +116,7 @@ __global__ void pathPlanningKernel(
     const int sampling,
     const int max_iteration,
     const int min_division_length,
+    const int global_seed,
     float *dev_debug);
-
 
 #endif

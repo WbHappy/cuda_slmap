@@ -66,9 +66,12 @@ int main(int argc, char** argv)
     nh.param(node_name + "/costmap_borders_value", GCM.costmap_borders_value, (int) 1000);
 
     nh.param(node_name + "/planner_max_iteration", GPP.planner_max_iteration, (int) 1000);
-    nh.param(node_name + "/planner_concurrent_paths", GPP.planner_concurrent_paths, (int) 1024);
-    nh.param(node_name + "/planner_threads_per_path", GPP.planner_threads_per_path, (int) 32);
+    // nh.param(node_name + "/planner_concurrent_paths", GPP.planner_concurrent_paths, (int) 1024);
+    nh.param(node_name + "/planner_concurrent_paths", GPP.planner_concurrent_paths, (int) 1);
+    // nh.param(node_name + "/planner_threads_per_path", GPP.planner_threads_per_path, (int) 32);
+    // nh.param(node_name + "/planner_threads_per_path", GPP.planner_threads_per_path, (int) 1);
     nh.param(node_name + "/planner_cost_sampling", GPP.planner_cost_sampling, (int) 16);
+    // nh.param(node_name + "/planner_cost_sampling", GPP.planner_cost_sampling, (int) 4);
     nh.param(node_name + "/planner_min_division_length", GPP.planner_min_division_length, (int) 64);
 
 
@@ -106,13 +109,15 @@ int main(int argc, char** argv)
     GPP.executeKernel();                stopwatch.Check_n_Reset("Planner kernel execution");
     GPP.copyOutputToHost();             stopwatch.Check_n_Reset("Planner memcopy output");
 
-    GPP.display();
+    GCM.copyOutputToHost();
+    GCM.display();
 
     GLTM.display();
 
-    GCM.copyOutputToHost();
+    GPP.display();
 
-    GCM.display();
+
+
 
 
     cv::waitKey(0);
