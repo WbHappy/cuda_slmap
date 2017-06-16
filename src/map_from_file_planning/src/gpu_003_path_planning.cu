@@ -23,8 +23,10 @@ __global__ void pathPlanningKernel(
 
     int threads_no = blockDim.x * blockDim.y;
 
-    // int local_seed = global_seed + 0xffffffffffffff / (tid+1);
     uint32_t local_seed = global_seed + tid * 0xffff;
+
+    curandState_t curand_state;
+    curand_init(local_seed, 0, 0, &curand_state);
 
     // Shared memory allocation
     __shared__ GpuPath initial_path;
@@ -43,6 +45,8 @@ __global__ void pathPlanningKernel(
 
 for(int i = 0; i < 2; i++)
 {
+    int std_dev = 100 / (i+1);
+
     dividePath_Multithread(
         costmap,
         map_x,
@@ -51,7 +55,8 @@ for(int i = 0; i < 2; i++)
         &initial_path,
         new_points_buff,
         new_points_costs,
-        &local_seed,
+        &curand_state,
+        std_dev,
         sampling,
         sid,
         threads_no,
@@ -80,7 +85,8 @@ __device__ inline void dividePath_Multithread(
     GpuPath *path_input,
     GpuPathPoint *new_points_buff,
     uint32_t *new_points_costs,
-    uint32_t *local_seed,
+    curandState_t *curand_state,
+    const int std_dev,
     const int sampling,
     const int sid,
     const int threads_no,
@@ -107,7 +113,7 @@ __device__ inline void dividePath_Multithread(
         thread_points[0] = path_input->p[i]; // Assign first point
         for(int j = 0; j < PLANNER_EPISODE_DIVISIONS; j++)
         {
-            thread_points[j+1] =  generateRandomPoint(&path_input->p[i], &path_input->p[i+1], 1, 1, sid, threads_no, (*local_seed)++);  // Assign all random points
+            thread_points[j+1] =  generateRandomPoint(&path_input->p[i], &path_input->p[i+1], std_dev, map_x, map_y, sid, threads_no, curand_state);  // Assign all random points
         }
         thread_points[PLANNER_EPISODE_DIVISIONS + 1] = path_input->p[i+1]; // Assign last point
         __syncthreads();
@@ -227,18 +233,29 @@ __device__ inline void copyPath_Multithread(
 __device__ inline GpuPathPoint generateRandomPoint(
     const GpuPathPoint *p1,
     const GpuPathPoint *p2,
-    const int ep_div_no,
-    const int ep_div_total,
+    const int std_dev,
+    const int map_x,
+    const int map_y,
     const int sid,
     const int threads_no,
-    const int global_seed)
+    curandState_t *curand_state)
 {
     GpuPathPoint random_point;
 
-    curandState_t state;
-    curand_init(global_seed, 0, 0, &state);
-    random_point.x = curand(&state) % 255;
-    random_point.y = curand(&state) % 255;
+    // UNIFORM DISTRIBUTION
+    // random_point.x = curand(curand_state) % map_x;
+    // random_point.y = curand(curand_state) % map_y;
+
+    // NORMAL DISTRIBUTION
+    random_point.x =( p1->x + p2->x ) / 2 + (int)(curand_normal(curand_state) * std_dev);
+    random_point.y =( p1->y + p2->y ) / 2 + (int)(curand_normal(curand_state) * std_dev);
+
+    if(random_point.x < 0) random_point.x = 0;
+    if(random_point.x >= map_x) random_point.x = map_x - 1;
+    if(random_point.y < 0) random_point.y = 0;
+    if(random_point.y >= map_y) random_point.y = map_y - 1;
+
+    random_point.cost = 0;
 
     return random_point;
 

@@ -68,11 +68,12 @@ __device__ inline void copyPath_Multithread(
 __device__ inline GpuPathPoint generateRandomPoint(
     const GpuPathPoint *p1,
     const GpuPathPoint *p2,
-    int ep_div_no,
-    int ep_div_total,
-    int sid,
-    int threads_no,
-    int global_seed);
+    const int std_dev,
+    const int map_x,
+    const int map_y,
+    const int sid,
+    const int threads_no,
+    curandState_t *curand_state);
 
 __device__ inline void addPathPoints_Multithread(
     GpuPath *path_output,
@@ -107,7 +108,8 @@ __device__ inline void dividePath_Multithread(
     GpuPath *path_output,
     GpuPathPoint *new_points_buff,
     uint32_t *new_points_costs,
-    uint32_t *local_seed,
+    curandState_t *curand_state,
+    const int std_dev,
     const int sampling,
     const int sid,
     const int threads_no,
