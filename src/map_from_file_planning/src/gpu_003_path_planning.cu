@@ -54,7 +54,8 @@ for(int i = 0; i < 2; i++)
         &local_seed,
         sampling,
         sid,
-        threads_no);
+        threads_no,
+        dev_debug);
 
     __syncthreads();
 
@@ -82,7 +83,8 @@ __device__ inline void dividePath_Multithread(
     uint32_t *local_seed,
     const int sampling,
     const int sid,
-    const int threads_no
+    const int threads_no,
+    float* dev_debug
 )
 {
 
@@ -122,24 +124,53 @@ __device__ inline void dividePath_Multithread(
         __syncthreads();
 
         // Assigning best episode to path_output
+
+        dev_debug[sid] = thread_cost;
+
+        dev_debug[31] = findCheapestThreadPath(new_points_costs, sid, threads_no);
+
+        int best_thread = findCheapestThreadPath(new_points_costs, sid, threads_no);
+
         // TODO : LOWEST COST
-        if(sid == 0)
+        if(sid == best_thread)
         {
             for(int j = 0; j < PLANNER_EPISODE_DIVISIONS + 1; j++)
             {
                 int output_idx = (PLANNER_EPISODE_DIVISIONS + 1) * i + j + 1;
                 path_output->p[output_idx] = thread_points[j+1];
             }
-        }
 
 
-        // Update episode total cost
-        if(sid == 0)
-        {
+            // Update episode total cost
             path_output->total_cost += thread_cost;
             path_output->total_cost -= path_input->p[i+1].cost;
         }
     }
+
+}
+
+__device__ inline int findCheapestThreadPath(uint32_t *new_points_costs, int sid, int threads_no)
+{
+    __shared__ int sid_array[PLANNER_THREADS_PER_PATH];
+    sid_array[sid] = sid;
+
+    int max_sid = PLANNER_THREADS_PER_PATH / 2;
+
+    while(max_sid > 0 && sid < max_sid)
+    {
+        if(new_points_costs[sid_array[sid]] < new_points_costs[sid_array[sid + max_sid]])
+        {
+            // sid_array[sid] = sid_array[sid];  DO NOTHING
+        }else{
+            sid_array[sid] = sid_array[sid + max_sid];
+        }
+
+        max_sid /= 2;
+    }
+
+    __syncthreads();
+
+    return sid_array[0];
 
 }
 
@@ -206,8 +237,8 @@ __device__ inline GpuPathPoint generateRandomPoint(
 
     curandState_t state;
     curand_init(global_seed, 0, 0, &state);
-    random_point.x = curand(&state) % 100;
-    random_point.y = curand(&state) % 200;
+    random_point.x = curand(&state) % 255;
+    random_point.y = curand(&state) % 255;
 
     return random_point;
 

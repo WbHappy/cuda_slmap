@@ -92,6 +92,13 @@ __device__ inline int calcEpisodeCost_Singlethread(
     const int sampling);
 
 //aqq
+__device__ inline int findCheapestThreadPath(
+    uint32_t *new_points_costs,
+    int sid,
+    int threads_no);
+
+
+//aqq
 __device__ inline void dividePath_Multithread(
     int16_t *costmap,
     const int map_x,
@@ -103,7 +110,8 @@ __device__ inline void dividePath_Multithread(
     uint32_t *local_seed,
     const int sampling,
     const int sid,
-    const int threads_no);
+    const int threads_no,
+    float* dev_debug);
 
 //aqq
 __global__ void pathPlanningKernel(

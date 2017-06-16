@@ -86,7 +86,7 @@ int main(int argc, char** argv)
     stopwatch.Start();
 
     // GLTM.readHeightMapFromFile8("src/map_from_file_planning/_maps/map3.png");
-    GLTM.readCostMapFromFile8("src/map_from_file_planning/_maps/cmap3.png");
+    GLTM.readCostMapFromFile8("src/map_from_file_planning/_maps/map1.png");
 
     stopwatch.Check_n_Reset("Map from file to GPU");
 
@@ -95,8 +95,8 @@ int main(int argc, char** argv)
     // _RPM.setCustomRobotPoseOnMap(125, 296);
     // _RPM.setCustomGoalPoseOnMap(75, 10);
     // _RPM.setCustomGoalPoseOnMap(_RPM.host_costmap.size_x - 10, 10);
-    _RPM.setCustomRobotPoseOnMap(10, 10);
-    _RPM.setCustomGoalPoseOnMap(_RPM.host_costmap.size_x - 10, _RPM.host_costmap.size_y - 10);
+    _RPM.setCustomRobotPoseOnMap(10, 60);
+    _RPM.setCustomGoalPoseOnMap(245, 60);
 
 
 
