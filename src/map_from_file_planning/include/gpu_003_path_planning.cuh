@@ -96,7 +96,7 @@ __device__ inline void addPathPoints_Multithread(
     int new_points_index);
 
 // Calcualtes cost of traveling via episode
-__device__ inline int calcEpisodeCost_Singlethread(
+__device__ inline int16_t calcEpisodeAvrgCost_Singlethread(
     int16_t *costmap,
     const int map_x,
     const int map_y,
@@ -104,6 +104,11 @@ __device__ inline int calcEpisodeCost_Singlethread(
     const GpuPathPoint *p2,
     const int sampling);
 
+// Calcualtes cost of traveling via episode
+__device__ inline uint16_t calcEpisodeLength_Singlethread(
+    const GpuPathPoint *p1,
+    const GpuPathPoint *p2);
+    
 //
 __device__ inline void updatePathCost_Multithread(
     GpuPath *path_input,

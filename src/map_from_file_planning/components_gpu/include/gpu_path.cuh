@@ -5,7 +5,13 @@ struct GpuPathPoint
 {
     uint16_t x;
     uint16_t y;
-    uint32_t cost;
+    uint16_t length;
+    int16_t avrg_cost;
+
+    __device__ inline uint32_t cost()
+    {
+        return length * avrg_cost;
+    }
 };
 
 struct GpuPath
