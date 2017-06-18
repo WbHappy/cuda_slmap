@@ -21,7 +21,8 @@ __global__ void pathPlanningKernel(
     int bid = blockIdx.x * gridDim.y + blockIdx.y;
     int sid = threadIdx.x * blockDim.y + threadIdx.y;
 
-    int threads_no = blockDim.x * blockDim.y;
+    // int threads_no = blockDim.x * blockDim.y;
+    int threads_no = PLANNER_THREADS_PER_PATH;
 
     uint32_t local_seed = global_seed + tid * 0xffff;
 
@@ -33,7 +34,8 @@ __global__ void pathPlanningKernel(
     __shared__ GpuPath divided_path;
     // __shared__ GpuPath mutated_path;
     __shared__ GpuPathPoint new_points_buff[GPU_PATH_MAX_SIZE];
-    __shared__ uint32_t new_points_costs[PLANNER_THREADS_PER_PATH];
+    __shared__ uint32_t points_costs_div[PLANNER_THREADS_PER_PATH];
+    __shared__ uint32_t points_costs_mut[PLANNER_THREADS_PER_PATH];
 
     initial_path.p[0] = odom;
     initial_path.p[1] = goal;
@@ -43,32 +45,59 @@ __global__ void pathPlanningKernel(
     divided_path.total_size = 0;
     divided_path.total_cost = 0;
 
-for(int i = 0; i < 2; i++)
-{
-    int std_dev = 100 / (i+1);
+    for(int i = 0; i < 3; i++)
+    {
+        int std_dev_div = 128 / (i+1) / (i+1) + 8;
+        int std_dev_mut = 32 / (i+1) / (i+1) + 2;
 
-    dividePath_Multithread(
-        costmap,
-        map_x,
-        map_y,
+        dividePath_Multithread(
+            costmap,
+            map_x,
+            map_y,
+            &divided_path,
+            &initial_path,
+            new_points_buff,
+            points_costs_div,
+            &curand_state,
+            std_dev_div,
+            sampling,
+            sid,
+            threads_no,
+            dev_debug);
+
+        __syncthreads();
+
+        copyPath_Multithread(&initial_path, &divided_path, sid, threads_no);
+
+        __syncthreads();
+
+        mutatePath_Multithread(
+            costmap,
+            map_x,
+            map_y,
+            &divided_path,
+            &initial_path,
+            new_points_buff,
+            points_costs_mut,
+            &curand_state,
+            std_dev_mut,
+            sampling,
+            sid,
+            threads_no,
+            dev_debug);
+
+        __syncthreads();
+
+        copyPath_Multithread(&initial_path, &divided_path, sid, threads_no);
+
+        __syncthreads();
+
+    }
+
+    updatePathCost_Multithread(
         &divided_path,
-        &initial_path,
-        new_points_buff,
-        new_points_costs,
-        &curand_state,
-        std_dev,
-        sampling,
         sid,
-        threads_no,
-        dev_debug);
-
-    __syncthreads();
-
-    copyPath_Multithread(&initial_path, &divided_path, sid, threads_no);
-
-    __syncthreads();
-
-}
+        threads_no);
 
     copyPath_Multithread(&dev_paths[bid], &divided_path, sid, threads_no);
 }
@@ -126,18 +155,15 @@ __device__ inline void dividePath_Multithread(
              thread_cost += thread_points[j + 1].cost;
         }
         new_points_costs[sid] = thread_cost;
-
         __syncthreads();
 
-        // Assigning best episode to path_output
 
         dev_debug[sid] = thread_cost;
-
         dev_debug[31] = findCheapestThreadPath(new_points_costs, sid, threads_no);
 
-        int best_thread = findCheapestThreadPath(new_points_costs, sid, threads_no);
 
-        // TODO : LOWEST COST
+        // Chosing thread with lowest cost
+        int best_thread = findCheapestThreadPath(new_points_costs, sid, threads_no);
         if(sid == best_thread)
         {
             for(int j = 0; j < PLANNER_EPISODE_DIVISIONS + 1; j++)
@@ -145,14 +171,120 @@ __device__ inline void dividePath_Multithread(
                 int output_idx = (PLANNER_EPISODE_DIVISIONS + 1) * i + j + 1;
                 path_output->p[output_idx] = thread_points[j+1];
             }
-
-
-            // Update episode total cost
-            path_output->total_cost += thread_cost;
-            path_output->total_cost -= path_input->p[i+1].cost;
         }
     }
+}
 
+// GPU function to perform one iteration of path mutation
+__device__ inline void mutatePath_Multithread(
+    int16_t *costmap,
+    const int map_x,
+    const int map_y,
+    GpuPath *path_output,
+    GpuPath *path_input,
+    GpuPathPoint *new_points_buff,
+    uint32_t *new_points_costs,
+    curandState_t *curand_state,
+    const int std_dev,
+    const int sampling,
+    const int sid,
+    const int threads_no,
+    float* dev_debug
+)
+{
+
+    if(sid == 0)
+    {
+        path_output->p[0] = path_input->p[0];
+        path_output->total_size = path_input->total_size;
+        path_output->p[path_output->total_size-1] = path_input->p[path_input->total_size-1];
+    }
+
+    // Iterating through path internal points
+    for(int i = 0; i < path_input->total_size - PLANNER_EPISODE_MUTATIONS - 1; i++)
+    {
+        uint32_t thread_cost = 0;
+
+
+        // Generating random points
+        // First and last episode point are added on the start and end
+        GpuPathPoint thread_points[PLANNER_EPISODE_MUTATIONS + 2];
+
+        thread_points[0] = path_input->p[i]; // Assign first point
+        for(int j = 0; j < PLANNER_EPISODE_MUTATIONS; j++)
+        {
+            thread_points[j + 1] =  generateRandomPoint(&path_input->p[i + j + 1], std_dev, map_x, map_y, sid, threads_no, curand_state);  // Assign all random points
+        }
+        thread_points[PLANNER_EPISODE_MUTATIONS + 1] = path_input->p[i + PLANNER_EPISODE_MUTATIONS + 1]; // Assign last point
+
+        __syncthreads();
+
+
+        // Calculating cost of episode
+        for(int j = 0; j < PLANNER_EPISODE_MUTATIONS + 1; j++)
+        {
+            thread_points[j + 1].cost = calcEpisodeCost_Singlethread(costmap, map_x, map_y, &thread_points[j], &thread_points[j+1], sampling);
+            thread_cost += thread_points[j + 1].cost;
+        }
+
+        new_points_costs[sid] = thread_cost;
+        __syncthreads();
+
+
+        // dev_debug[sid] = thread_cost;
+        // dev_debug[31] = findCheapestThreadPath(new_points_costs, sid, threads_no);
+
+
+        // Chosing thread with lowest cost
+        int best_thread = findCheapestThreadPath(new_points_costs, sid, threads_no);
+        if(sid == best_thread)
+        {
+            for(int j = 0; j < PLANNER_EPISODE_MUTATIONS + 1; j++)
+            {
+                path_output->p[i + j + 1] = thread_points[j+1];
+
+            }
+        }
+    }
+}
+
+__device__ inline void updatePathCost_Multithread(
+    GpuPath *path_input,
+    int sid,
+    int threads_no
+)
+{
+    int point_index = sid;
+    int path_size = path_input->total_size;
+    uint32_t thread_cost = 0;
+
+    while(point_index < path_size)
+    {
+        thread_cost += path_input->p[point_index].cost;
+        point_index += threads_no;
+    }
+
+    __syncthreads();
+
+    __shared__ int cost_array[PLANNER_THREADS_PER_PATH];
+    cost_array[sid] = thread_cost;
+    int max_sid = PLANNER_THREADS_PER_PATH / 2;
+
+    while(max_sid > 0 && sid < max_sid)
+    {
+
+        cost_array[sid] = cost_array[sid] + cost_array[sid + max_sid];
+
+        __syncthreads();
+
+        max_sid /= 2;
+    }
+    __syncthreads();
+
+    if(sid == 0)
+    {
+        path_input->total_cost = cost_array[0];
+    }
 }
 
 __device__ inline int findCheapestThreadPath(uint32_t *new_points_costs, int sid, int threads_no)
@@ -170,10 +302,10 @@ __device__ inline int findCheapestThreadPath(uint32_t *new_points_costs, int sid
         }else{
             sid_array[sid] = sid_array[sid + max_sid];
         }
+        __syncthreads();
 
         max_sid /= 2;
     }
-
     __syncthreads();
 
     return sid_array[0];
@@ -249,6 +381,36 @@ __device__ inline GpuPathPoint generateRandomPoint(
     // NORMAL DISTRIBUTION
     random_point.x =( p1->x + p2->x ) / 2 + (int)(curand_normal(curand_state) * std_dev);
     random_point.y =( p1->y + p2->y ) / 2 + (int)(curand_normal(curand_state) * std_dev);
+
+    if(random_point.x < 0) random_point.x = 0;
+    if(random_point.x >= map_x) random_point.x = map_x - 1;
+    if(random_point.y < 0) random_point.y = 0;
+    if(random_point.y >= map_y) random_point.y = map_y - 1;
+
+    random_point.cost = 0;
+
+    return random_point;
+
+}
+
+__device__ inline GpuPathPoint generateRandomPoint(
+    const GpuPathPoint *p1,
+    const int std_dev,
+    const int map_x,
+    const int map_y,
+    const int sid,
+    const int threads_no,
+    curandState_t *curand_state)
+{
+    GpuPathPoint random_point;
+
+    // UNIFORM DISTRIBUTION
+    // random_point.x = curand(curand_state) % map_x;
+    // random_point.y = curand(curand_state) % map_y;
+
+    // NORMAL DISTRIBUTION
+    random_point.x = p1->x + (int)(curand_normal(curand_state) * std_dev);
+    random_point.y = p1->y + (int)(curand_normal(curand_state) * std_dev);
 
     if(random_point.x < 0) random_point.x = 0;
     if(random_point.x >= map_x) random_point.x = map_x - 1;
@@ -385,7 +547,8 @@ void GpuPathPlanning::executeKernel()
 
     // Seed for cuRand
     gettimeofday(&host_time, 0);
-    uint32_t global_seed = host_time.tv_sec + host_time.tv_usec;
+    // uint32_t global_seed = host_time.tv_sec + host_time.tv_usec;
+    uint32_t global_seed = 1;
 
     pathPlanningKernel<<<planner_concurrent_paths, PLANNER_THREADS_PER_PATH>>>(
                             dev_path,
