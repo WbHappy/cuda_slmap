@@ -37,18 +37,24 @@ __global__ void pathPlanningKernel(
     __shared__ uint32_t points_costs_div[PLANNER_THREADS_PER_PATH];
     __shared__ uint32_t points_costs_mut[PLANNER_THREADS_PER_PATH];
 
-    initial_path.p[0] = odom;
-    initial_path.p[1] = goal;
-    initial_path.total_size = 2;
-    initial_path.total_cost = 0;
+    if(sid == 0)
+    {
+        initial_path.p[0] = odom;
+        initial_path.p[1] = goal;
+        initial_path.p[1].avrg_cost = calcEpisodeAvrgCost_Singlethread(costmap, map_x, map_y, &initial_path.p[0], &initial_path.p[1], sampling);
+        initial_path.p[1].length = calcEpisodeLength_Singlethread(&initial_path.p[0], &initial_path.p[1]);
 
-    divided_path.total_size = 0;
-    divided_path.total_cost = 0;
+        initial_path.total_size = 2;
+        initial_path.total_cost = 0;
+
+        divided_path.total_size = 0;
+        divided_path.total_cost = 0;
+    }
 
     for(int i = 0; i < 3; i++)
     {
-        int std_dev_div = 128 / (i+1) / (i+1) + 8;
-        int std_dev_mut = 32 / (i+1) / (i+1) + 2;
+        int std_dev_div = 128 / (i+1) / (i+1) + 8;  // Currently UNUSED!
+        int std_dev_mut = 32 / (i+1) / (i+1) + 2;   // Currently UNUSED!
 
         dividePath_Multithread(
             costmap,
@@ -142,7 +148,17 @@ __device__ inline void dividePath_Multithread(
         thread_points[0] = path_input->p[i]; // Assign first point
         for(int j = 0; j < PLANNER_EPISODE_DIVISIONS; j++)
         {
-            thread_points[j+1] =  generateRandomPoint(&path_input->p[i], &path_input->p[i+1], std_dev, map_x, map_y, sid, threads_no, curand_state);  // Assign all random points
+            thread_points[j+1] =  generateDividePoint_Singlethread(
+                                        costmap,
+                                        &path_input->p[i],
+                                        &path_input->p[i+1],
+                                        std_dev,
+                                        map_x,
+                                        map_y,
+                                        sid,
+                                        threads_no,
+                                        sampling,
+                                        curand_state);  // Assign all random points
         }
         thread_points[PLANNER_EPISODE_DIVISIONS + 1] = path_input->p[i+1]; // Assign last point
         __syncthreads();
@@ -214,7 +230,17 @@ __device__ inline void mutatePath_Multithread(
         thread_points[0] = path_input->p[i]; // Assign first point
         for(int j = 0; j < PLANNER_EPISODE_MUTATIONS; j++)
         {
-            thread_points[j + 1] =  generateRandomPoint(&path_input->p[i + j + 1], std_dev, map_x, map_y, sid, threads_no, curand_state);  // Assign all random points
+            thread_points[j + 1] = generateMutatePoint_Singlethread(
+                                        costmap,
+                                        &path_input->p[i + j],
+                                        &path_input->p[i + j + 1],
+                                        std_dev,
+                                        map_x,
+                                        map_y,
+                                        sid,
+                                        threads_no,
+                                        sampling,
+                                        curand_state);  // Assign all random points
         }
         thread_points[PLANNER_EPISODE_MUTATIONS + 1] = path_input->p[i + PLANNER_EPISODE_MUTATIONS + 1]; // Assign last point
 
@@ -364,7 +390,8 @@ __device__ inline void copyPath_Multithread(
     }
 }
 
-__device__ inline GpuPathPoint generateRandomPoint(
+__device__ inline GpuPathPoint generateDividePoint_Singlethread(
+    int16_t *costmap,
     const GpuPathPoint *p1,
     const GpuPathPoint *p2,
     const int std_dev,
@@ -372,6 +399,7 @@ __device__ inline GpuPathPoint generateRandomPoint(
     const int map_y,
     const int sid,
     const int threads_no,
+    const int sampling,
     curandState_t *curand_state)
 {
     GpuPathPoint random_point;
@@ -380,29 +408,33 @@ __device__ inline GpuPathPoint generateRandomPoint(
     // random_point.x = curand(curand_state) % map_x;
     // random_point.y = curand(curand_state) % map_y;
 
+    int std_dev_len = p2->length / DIVISION_STD_DEV_DIVIDER;
+
     // NORMAL DISTRIBUTION
-    random_point.x =( p1->x + p2->x ) / 2 + (int)(curand_normal(curand_state) * std_dev);
-    random_point.y =( p1->y + p2->y ) / 2 + (int)(curand_normal(curand_state) * std_dev);
+    random_point.x =( p1->x + p2->x ) / 2 + (int)(curand_normal(curand_state) * std_dev_len);
+    random_point.y =( p1->y + p2->y ) / 2 + (int)(curand_normal(curand_state) * std_dev_len);
 
     if(random_point.x < 0) random_point.x = 0;
     if(random_point.x >= map_x) random_point.x = map_x - 1;
     if(random_point.y < 0) random_point.y = 0;
     if(random_point.y >= map_y) random_point.y = map_y - 1;
 
-    random_point.avrg_cost = 0;
-    random_point.length = 0;
+    random_point.avrg_cost = calcEpisodeAvrgCost_Singlethread(costmap, map_x, map_y, p1, p2, sampling);
+    random_point.length = calcEpisodeLength_Singlethread(p1, p2);
 
     return random_point;
-
 }
 
-__device__ inline GpuPathPoint generateRandomPoint(
+__device__ inline GpuPathPoint generateMutatePoint_Singlethread(
+    int16_t *costmap,
     const GpuPathPoint *p1,
+    const GpuPathPoint *p2,
     const int std_dev,
     const int map_x,
     const int map_y,
     const int sid,
     const int threads_no,
+    const int sampling,
     curandState_t *curand_state)
 {
     GpuPathPoint random_point;
@@ -411,17 +443,19 @@ __device__ inline GpuPathPoint generateRandomPoint(
     // random_point.x = curand(curand_state) % map_x;
     // random_point.y = curand(curand_state) % map_y;
 
+    int std_dev_len = p2->length / MUTATION_STD_DEV_DIVIDER;
+
     // NORMAL DISTRIBUTION
-    random_point.x = p1->x + (int)(curand_normal(curand_state) * std_dev);
-    random_point.y = p1->y + (int)(curand_normal(curand_state) * std_dev);
+    random_point.x = p2->x + (int)(curand_normal(curand_state) * std_dev_len);
+    random_point.y = p2->y + (int)(curand_normal(curand_state) * std_dev_len);
 
     if(random_point.x < 0) random_point.x = 0;
     if(random_point.x >= map_x) random_point.x = map_x - 1;
     if(random_point.y < 0) random_point.y = 0;
     if(random_point.y >= map_y) random_point.y = map_y - 1;
 
-    random_point.avrg_cost = 0;
-    random_point.length = 0;
+    random_point.avrg_cost = calcEpisodeAvrgCost_Singlethread(costmap, map_x, map_y, p1, p2, sampling);
+    random_point.length = calcEpisodeLength_Singlethread(p1, p2);
 
     return random_point;
 

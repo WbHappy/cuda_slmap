@@ -66,7 +66,8 @@ __device__ inline void copyPath_Multithread(
 
 // GPU function that generates pseudo-random point
 // Reference point pose is betweem two points
-__device__ inline GpuPathPoint generateRandomPoint(
+__device__ inline GpuPathPoint generateDividePoint_Singlethread(
+    int16_t *costmap,
     const GpuPathPoint *p1,
     const GpuPathPoint *p2,
     const int std_dev,
@@ -74,17 +75,21 @@ __device__ inline GpuPathPoint generateRandomPoint(
     const int map_y,
     const int sid,
     const int threads_no,
+    const int sampling,
     curandState_t *curand_state);
 
 // GPU function that generates pseudo-random point
 // Reference point pose is inside point
-__device__ inline GpuPathPoint generateRandomPoint(
+__device__ inline GpuPathPoint generateMutatePoint_Singlethread(
+    int16_t *costmap,
     const GpuPathPoint *p1,
+    const GpuPathPoint *p2,
     const int std_dev,
     const int map_x,
     const int map_y,
     const int sid,
     const int threads_no,
+    const int sampling,
     curandState_t *curand_state);
 
 __device__ inline void addPathPoints_Multithread(
@@ -108,7 +113,7 @@ __device__ inline int16_t calcEpisodeAvrgCost_Singlethread(
 __device__ inline uint16_t calcEpisodeLength_Singlethread(
     const GpuPathPoint *p1,
     const GpuPathPoint *p2);
-    
+
 //
 __device__ inline void updatePathCost_Multithread(
     GpuPath *path_input,
