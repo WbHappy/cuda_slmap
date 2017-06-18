@@ -51,7 +51,7 @@ __global__ void pathPlanningKernel(
         divided_path.total_cost = 0;
     }
 
-    for(int i = 0; i < 3; i++)
+    for(int i = 0; i < PLANNER_MAX_ITERATIONS; i++)
     {
         int std_dev_div = 128 / (i+1) / (i+1) + 8;  // Currently UNUSED!
         int std_dev_mut = 32 / (i+1) / (i+1) + 2;   // Currently UNUSED!
@@ -148,9 +148,23 @@ __device__ inline void dividePath_Multithread(
         thread_points[0] = path_input->p[i]; // Assign first point
         for(int j = 0; j < PLANNER_EPISODE_DIVISIONS; j++)
         {
+            // RANDOMIZING BETWEEN EPISODE ENDS
+            // thread_points[j+1] =  generateDividePoint_Singlethread(
+            //                             costmap,
+            //                             &path_input->p[i],
+            //                             &path_input->p[i+1],
+            //                             std_dev,
+            //                             map_x,
+            //                             map_y,
+            //                             sid,
+            //                             threads_no,
+            //                             sampling,
+            //                             curand_state);  // Assign all random points
+
+            // RANDOMIZING FROM LAST POINT (MIGHT BE RANDOMIZED) TO EPISODE END
             thread_points[j+1] =  generateDividePoint_Singlethread(
                                         costmap,
-                                        &path_input->p[i],
+                                        &thread_points[j],
                                         &path_input->p[i+1],
                                         std_dev,
                                         map_x,

@@ -5,6 +5,8 @@
 #define PLANNER_EPISODE_MUTATIONS 1     // Number of points mutated together
 #define PLANNER_THREADS_PER_PATH 16
 
+#define PLANNER_MAX_ITERATIONS 3
+
 #define DIVISION_STD_DEV_DIVIDER 2
 #define MUTATION_STD_DEV_DIVIDER 4
 
