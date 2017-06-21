@@ -48,6 +48,8 @@ public:
     void copyOutputToHost();
 
     void display();
+
+    void displayBestPath();
 };
 
 // GPU function to copy path between two pointers

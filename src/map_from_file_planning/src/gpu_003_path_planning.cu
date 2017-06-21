@@ -75,29 +75,29 @@ __global__ void pathPlanningKernel(
         __syncthreads();
 
         copyPath_Multithread(&initial_path, &divided_path, sid, threads_no);
+        //
+        // __syncthreads();
+        //
+        //
+        // mutatePath_Multithread(
+        //     costmap,
+        //     map_x,
+        //     map_y,
+        //     &divided_path,
+        //     &initial_path,
+        //     new_points_buff,
+        //     points_costs_mut,
+        //     &curand_state,
+        //     min_episode_length,
+        //     std_dev_mut,
+        //     sampling,
+        //     sid,
+        //     threads_no,
+        //     dev_debug);
 
-        __syncthreads();
+            __syncthreads();
 
-        mutatePath_Multithread(
-            costmap,
-            map_x,
-            map_y,
-            &divided_path,
-            &initial_path,
-            new_points_buff,
-            points_costs_mut,
-            &curand_state,
-            min_episode_length,
-            std_dev_mut,
-            sampling,
-            sid,
-            threads_no,
-            dev_debug);
-
-        __syncthreads();
-
-        copyPath_Multithread(&initial_path, &divided_path, sid, threads_no);
-
+            copyPath_Multithread(&initial_path, &divided_path, sid, threads_no);
         __syncthreads();
 
     }
@@ -702,8 +702,8 @@ void GpuPathPlanning::executeKernel()
 
     // Seed for cuRand
     gettimeofday(&host_time, 0);
-    uint32_t global_seed = host_time.tv_sec + host_time.tv_usec;
-    // uint32_t global_seed = 1;
+    // uint32_t global_seed = host_time.tv_sec + host_time.tv_usec;
+    uint32_t global_seed = 1;
 
     pathPlanningKernel<<<planner_concurrent_paths, PLANNER_THREADS_PER_PATH>>>(
                             dev_path,
@@ -764,6 +764,58 @@ void GpuPathPlanning::display()
         printf("    total cost: %d\n", host_path[i].total_cost);
         printf("===========\n");
     }
+
+    printf("debug:\n");
+    for(int i = 0; i < 32; i++)
+    {
+        printf("    debug %d: %f\n", i, host_debug[i]);
+    }
+    printf("===========\n");
+
+}
+
+void GpuPathPlanning::displayBestPath()
+{
+
+    int best_id = 0;
+    int best_cost = host_path[0].total_cost;
+
+    for(int i = 0; i < planner_concurrent_paths; i++)
+    {
+        if(host_path[i].total_cost < best_cost)
+        {
+            best_cost = host_path[i].total_cost;
+            best_id = i;
+        }
+    }
+
+
+    for(int j = 0; j < host_path[best_id].total_size -1; j++)
+    {
+        _rpm->host_costmap.drawEpiosde(
+            "costmap",
+            128,
+            host_path[best_id].p[j].x,
+            host_path[best_id].p[j].y,
+            host_path[best_id].p[j+1].x,
+            host_path[best_id].p[j+1].y);
+    }
+
+
+    printf("===========\n");
+    printf("host path %d\n\n", best_id);
+
+    for(int j = 0; j < host_path[best_id].total_size; j++)
+    {
+        printf("    point: %d\n", j);
+        printf("    x: %d\n", host_path[best_id].p[j].x);
+        printf("    y: %d\n", host_path[best_id].p[j].y);
+        printf("    avrg_cost: %d\n", host_path[best_id].p[j].avrg_cost);
+        printf("    length: %d\n\n", host_path[best_id].p[j].length);
+    }
+    printf("    total size: %d\n", host_path[best_id].total_size);
+    printf("    total cost: %d\n", host_path[best_id].total_cost);
+    printf("===========\n");
 
     printf("debug:\n");
     for(int i = 0; i < 32; i++)

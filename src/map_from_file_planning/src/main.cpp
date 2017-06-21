@@ -66,8 +66,8 @@ int main(int argc, char** argv)
     nh.param(node_name + "/costmap_borders_value", GCM.costmap_borders_value, (int) 1000);
 
     nh.param(node_name + "/planner_max_iteration", GPP.planner_max_iteration, (int) 1000);
-    // nh.param(node_name + "/planner_concurrent_paths", GPP.planner_concurrent_paths, (int) 1024);
-    nh.param(node_name + "/planner_concurrent_paths", GPP.planner_concurrent_paths, (int) 1);
+    nh.param(node_name + "/planner_concurrent_paths", GPP.planner_concurrent_paths, (int) 128);
+    // nh.param(node_name + "/planner_concurrent_paths", GPP.planner_concurrent_paths, (int) 1);
     // nh.param(node_name + "/planner_threads_per_path", GPP.planner_threads_per_path, (int) 32);
     // nh.param(node_name + "/planner_threads_per_path", GPP.planner_threads_per_path, (int) 1);
     // nh.param(node_name + "/planner_cost_sampling", GPP.planner_cost_sampling, (int) 16);
@@ -114,7 +114,7 @@ int main(int argc, char** argv)
 
     GLTM.display();
 
-    GPP.display();
+    GPP.displayBestPath();
 
 
 
