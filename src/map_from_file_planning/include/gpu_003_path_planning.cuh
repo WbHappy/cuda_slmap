@@ -35,7 +35,7 @@ public:
 
     int planner_cost_sampling;          // Distance between consecutive points taken to episode cost calculation in pixels
 
-    int planner_min_division_length;    // Episodes under this length will not be divided
+    int planner_min_episode_length;    // Episodes under this length will not be divided
 
 
 public:
@@ -66,11 +66,27 @@ __device__ inline void copyPath_Multithread(
 
 // GPU function that generates pseudo-random point
 // Reference point pose is betweem two points
-__device__ inline GpuPathPoint generateDividePoint_Singlethread(
+__device__ inline GpuPathPoint generateDividePointRandom_Singlethread(
     int16_t *costmap,
     const GpuPathPoint *p1,
     const GpuPathPoint *p2,
+    const int min_episode_length,
     const int std_dev,
+    const int map_x,
+    const int map_y,
+    const int sid,
+    const int threads_no,
+    const int sampling,
+    curandState_t *curand_state);
+
+// GPU function that generates pseudo-random point
+// Reference point pose is betweem two points
+__device__ inline GpuPathPoint generateDividePointLine_Singlethread(
+    int16_t *costmap,
+    const GpuPathPoint *p1,
+    const GpuPathPoint *p2,
+    const int min_episode_length,
+    const int line_index,
     const int map_x,
     const int map_y,
     const int sid,
@@ -84,6 +100,7 @@ __device__ inline GpuPathPoint generateMutatePoint_Singlethread(
     int16_t *costmap,
     const GpuPathPoint *p1,
     const GpuPathPoint *p2,
+    const int min_episode_length,
     const int std_dev,
     const int map_x,
     const int map_y,
@@ -138,6 +155,7 @@ __device__ inline void dividePath_Multithread(
     GpuPathPoint *new_points_buff,
     uint32_t *new_points_costs,
     curandState_t *curand_state,
+    const int min_episode_length,
     const int std_dev,
     const int sampling,
     const int sid,
@@ -154,6 +172,7 @@ __device__ inline void mutatePath_Multithread(
     GpuPathPoint *new_points_buff,
     uint32_t *new_points_costs,
     curandState_t *curand_state,
+    const int min_episode_length,
     const int std_dev,
     const int sampling,
     const int sid,

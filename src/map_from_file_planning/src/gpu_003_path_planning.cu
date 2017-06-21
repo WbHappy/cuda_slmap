@@ -9,7 +9,7 @@ __global__ void pathPlanningKernel(
     const GpuPathPoint goal,
     const int sampling,
     const int max_iteration,
-    const int min_division_length,
+    const int min_episode_length,
     const int global_seed,
     float *dev_debug
 )
@@ -65,6 +65,7 @@ __global__ void pathPlanningKernel(
             new_points_buff,
             points_costs_div,
             &curand_state,
+            min_episode_length,
             std_dev_div,
             sampling,
             sid,
@@ -86,6 +87,7 @@ __global__ void pathPlanningKernel(
             new_points_buff,
             points_costs_mut,
             &curand_state,
+            min_episode_length,
             std_dev_mut,
             sampling,
             sid,
@@ -121,6 +123,7 @@ __device__ inline void dividePath_Multithread(
     GpuPathPoint *new_points_buff,
     uint32_t *new_points_costs,
     curandState_t *curand_state,
+    const int min_episode_length,
     const int std_dev,
     const int sampling,
     const int sid,
@@ -148,31 +151,35 @@ __device__ inline void dividePath_Multithread(
         thread_points[0] = path_input->p[i]; // Assign first point
         for(int j = 0; j < PLANNER_EPISODE_DIVISIONS; j++)
         {
-            // RANDOMIZING BETWEEN EPISODE ENDS
-            // thread_points[j+1] =  generateDividePoint_Singlethread(
-            //                             costmap,
-            //                             &path_input->p[i],
-            //                             &path_input->p[i+1],
-            //                             std_dev,
-            //                             map_x,
-            //                             map_y,
-            //                             sid,
-            //                             threads_no,
-            //                             sampling,
-            //                             curand_state);  // Assign all random points
-
-            // RANDOMIZING FROM LAST POINT (MIGHT BE RANDOMIZED) TO EPISODE END
-            thread_points[j+1] =  generateDividePoint_Singlethread(
-                                        costmap,
-                                        &thread_points[j],
-                                        &path_input->p[i+1],
-                                        std_dev,
-                                        map_x,
-                                        map_y,
-                                        sid,
-                                        threads_no,
-                                        sampling,
-                                        curand_state);  // Assign all random points
+            if(sid == 0)
+            {
+                thread_points[j+1] =  generateDividePointLine_Singlethread(             // Assign all random points
+                    costmap,
+                    &path_input->p[i],
+                    &path_input->p[i+1],
+                    min_episode_length,
+                    j,
+                    map_x,
+                    map_y,
+                    sid,
+                    threads_no,
+                    sampling,
+                    curand_state);
+            }else{
+                // RANDOMIZING FROM LAST POINT (MIGHT BE RANDOMIZED) TO EPISODE END
+                thread_points[j+1] =  generateDividePointRandom_Singlethread(             // Assign all random points
+                    costmap,
+                    &thread_points[j],
+                    &path_input->p[i+1],
+                    min_episode_length,
+                    std_dev,
+                    map_x,
+                    map_y,
+                    sid,
+                    threads_no,
+                    sampling,
+                    curand_state);
+            }
         }
         thread_points[PLANNER_EPISODE_DIVISIONS + 1] = path_input->p[i+1]; // Assign last point
         __syncthreads();
@@ -216,6 +223,7 @@ __device__ inline void mutatePath_Multithread(
     GpuPathPoint *new_points_buff,
     uint32_t *new_points_costs,
     curandState_t *curand_state,
+    const int min_episode_length,
     const int std_dev,
     const int sampling,
     const int sid,
@@ -244,17 +252,23 @@ __device__ inline void mutatePath_Multithread(
         thread_points[0] = path_input->p[i]; // Assign first point
         for(int j = 0; j < PLANNER_EPISODE_MUTATIONS; j++)
         {
-            thread_points[j + 1] = generateMutatePoint_Singlethread(
-                                        costmap,
-                                        &path_input->p[i + j],
-                                        &path_input->p[i + j + 1],
-                                        std_dev,
-                                        map_x,
-                                        map_y,
-                                        sid,
-                                        threads_no,
-                                        sampling,
-                                        curand_state);  // Assign all random points
+            if(sid == 0)
+            {
+                thread_points[j + 1] = path_input->p[i + j + 1];
+            }else{
+                thread_points[j + 1] = generateMutatePoint_Singlethread(
+                    costmap,
+                    &path_input->p[i + j],
+                    &path_input->p[i + j + 1],
+                    min_episode_length,
+                    std_dev,
+                    map_x,
+                    map_y,
+                    sid,
+                    threads_no,
+                    sampling,
+                    curand_state);  // Assign all random points
+            }
         }
         thread_points[PLANNER_EPISODE_MUTATIONS + 1] = path_input->p[i + PLANNER_EPISODE_MUTATIONS + 1]; // Assign last point
 
@@ -404,10 +418,11 @@ __device__ inline void copyPath_Multithread(
     }
 }
 
-__device__ inline GpuPathPoint generateDividePoint_Singlethread(
+__device__ inline GpuPathPoint generateDividePointRandom_Singlethread(
     int16_t *costmap,
     const GpuPathPoint *p1,
     const GpuPathPoint *p2,
+    const int min_episode_length,
     const int std_dev,
     const int map_x,
     const int map_y,
@@ -425,16 +440,76 @@ __device__ inline GpuPathPoint generateDividePoint_Singlethread(
     int std_dev_len = p2->length / DIVISION_STD_DEV_DIVIDER;
 
     // NORMAL DISTRIBUTION
-    random_point.x =( p1->x + p2->x ) / 2 + (int)(curand_normal(curand_state) * std_dev_len);
-    random_point.y =( p1->y + p2->y ) / 2 + (int)(curand_normal(curand_state) * std_dev_len);
+    int i = 0;
+    do
+    {
+        random_point.x =( p1->x + p2->x ) / 2 + (int)(curand_normal(curand_state) * std_dev_len);
+        random_point.y =( p1->y + p2->y ) / 2 + (int)(curand_normal(curand_state) * std_dev_len);
 
-    if(random_point.x < 0) random_point.x = 0;
-    if(random_point.x >= map_x) random_point.x = map_x - 1;
-    if(random_point.y < 0) random_point.y = 0;
-    if(random_point.y >= map_y) random_point.y = map_y - 1;
+        if(random_point.x < 0) random_point.x = 0;
+        if(random_point.x >= map_x) random_point.x = map_x - 1;
+        if(random_point.y < 0) random_point.y = 0;
+        if(random_point.y >= map_y) random_point.y = map_y - 1;
+
+        random_point.length = calcEpisodeLength_Singlethread(p1, p2);
+
+        i++;
+        if(i == PLANNER_MAX_RERANDOMING)
+        {
+            random_point.avrg_cost = 32000;
+            return random_point;
+        }
+
+    }while(random_point.length < min_episode_length);
 
     random_point.avrg_cost = calcEpisodeAvrgCost_Singlethread(costmap, map_x, map_y, p1, p2, sampling);
-    random_point.length = calcEpisodeLength_Singlethread(p1, p2);
+
+    return random_point;
+}
+
+__device__ inline GpuPathPoint generateDividePointLine_Singlethread(
+    int16_t *costmap,
+    const GpuPathPoint *p1,
+    const GpuPathPoint *p2,
+    const int min_episode_length,
+    const int line_index,
+    const int map_x,
+    const int map_y,
+    const int sid,
+    const int threads_no,
+    const int sampling,
+    curandState_t *curand_state)
+{
+    GpuPathPoint random_point;
+
+    int weight_1 = line_index + 1;
+    int weight_2 = PLANNER_EPISODE_DIVISIONS - line_index;
+    int weight_total = weight_1 + weight_2;
+
+    // LINEAR DIVISION
+    int i = 0;
+    do
+    {
+        random_point.x =( p1->x*weight_1 + p2->x*weight_2 ) / weight_total;
+        random_point.y =( p1->y*weight_1 + p2->y*weight_2 ) / weight_total;
+
+        if(random_point.x < 0) random_point.x = 0;
+        if(random_point.x >= map_x) random_point.x = map_x - 1;
+        if(random_point.y < 0) random_point.y = 0;
+        if(random_point.y >= map_y) random_point.y = map_y - 1;
+
+        random_point.length = calcEpisodeLength_Singlethread(p1, p2);
+
+        i++;
+        if(i == PLANNER_MAX_RERANDOMING)
+        {
+            random_point.avrg_cost = 32000;
+            return random_point;
+        }
+
+    }while(random_point.length < min_episode_length);
+
+    random_point.avrg_cost = calcEpisodeAvrgCost_Singlethread(costmap, map_x, map_y, p1, p2, sampling);
 
     return random_point;
 }
@@ -443,6 +518,7 @@ __device__ inline GpuPathPoint generateMutatePoint_Singlethread(
     int16_t *costmap,
     const GpuPathPoint *p1,
     const GpuPathPoint *p2,
+    const int min_episode_length,
     const int std_dev,
     const int map_x,
     const int map_y,
@@ -460,16 +536,29 @@ __device__ inline GpuPathPoint generateMutatePoint_Singlethread(
     int std_dev_len = p2->length / MUTATION_STD_DEV_DIVIDER;
 
     // NORMAL DISTRIBUTION
-    random_point.x = p2->x + (int)(curand_normal(curand_state) * std_dev_len);
-    random_point.y = p2->y + (int)(curand_normal(curand_state) * std_dev_len);
+    int i = 0;
+    do
+    {
+        random_point.x = p2->x + (int)(curand_normal(curand_state) * std_dev_len);
+        random_point.y = p2->y + (int)(curand_normal(curand_state) * std_dev_len);
 
-    if(random_point.x < 0) random_point.x = 0;
-    if(random_point.x >= map_x) random_point.x = map_x - 1;
-    if(random_point.y < 0) random_point.y = 0;
-    if(random_point.y >= map_y) random_point.y = map_y - 1;
+        if(random_point.x < 0) random_point.x = 0;
+        if(random_point.x >= map_x) random_point.x = map_x - 1;
+        if(random_point.y < 0) random_point.y = 0;
+        if(random_point.y >= map_y) random_point.y = map_y - 1;
+
+        random_point.length = calcEpisodeLength_Singlethread(p1, p2);
+
+        i++;
+        if(i == PLANNER_MAX_RERANDOMING)
+        {
+            random_point.avrg_cost = 32000;
+            return random_point;
+        }
+
+    }while(random_point.length < min_episode_length);
 
     random_point.avrg_cost = calcEpisodeAvrgCost_Singlethread(costmap, map_x, map_y, p1, p2, sampling);
-    random_point.length = calcEpisodeLength_Singlethread(p1, p2);
 
     return random_point;
 
@@ -625,7 +714,7 @@ void GpuPathPlanning::executeKernel()
                             goal_onmap,
                             planner_cost_sampling,
                             planner_max_iteration,
-                            planner_min_division_length,
+                            planner_min_episode_length,
                             global_seed,
                             dev_debug
     );

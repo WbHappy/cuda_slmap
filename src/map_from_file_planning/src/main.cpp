@@ -72,7 +72,7 @@ int main(int argc, char** argv)
     // nh.param(node_name + "/planner_threads_per_path", GPP.planner_threads_per_path, (int) 1);
     // nh.param(node_name + "/planner_cost_sampling", GPP.planner_cost_sampling, (int) 16);
     nh.param(node_name + "/planner_cost_sampling", GPP.planner_cost_sampling, (int) 2);
-    nh.param(node_name + "/planner_min_division_length", GPP.planner_min_division_length, (int) 64);
+    nh.param(node_name + "/planner_min_episode_length", GPP.planner_min_episode_length, (int) 8);
 
 
 
