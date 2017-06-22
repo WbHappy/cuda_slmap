@@ -5,7 +5,7 @@
 #define PLANNER_EPISODE_MUTATIONS 1     // Number of points mutated together
 #define PLANNER_THREADS_PER_PATH 32
 
-#define PLANNER_MAX_ITERATIONS 7
+#define PLANNER_MAX_ITERATIONS 5
 
 #define PLANNER_MAX_RERANDOMING 5
 

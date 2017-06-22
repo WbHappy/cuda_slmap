@@ -795,47 +795,53 @@ void GpuPathPlanning::display()
 
 }
 
-void GpuPathPlanning::displayBestPath()
+void GpuPathPlanning::updateBestPath()
 {
 
-    int best_id = 0;
-    int best_cost = host_path[0].total_cost;
+    this->best_path_id = 0;
+    this->best_path_cost = host_path[0].total_cost;
 
     for(int i = 0; i < planner_concurrent_paths; i++)
     {
-        if(host_path[i].total_cost < best_cost)
+        if(host_path[i].total_cost < best_path_cost)
         {
-            best_cost = host_path[i].total_cost;
-            best_id = i;
+            best_path_cost = host_path[i].total_cost;
+            best_path_id = i;
         }
     }
 
+    this->_ros->updatePath(&host_path[best_path_id]);
+}
 
-    for(int j = 0; j < host_path[best_id].total_size -1; j++)
+
+void GpuPathPlanning::displayBestPath()
+{
+
+    for(int j = 0; j < host_path[best_path_id].total_size -1; j++)
     {
         _rpm->host_costmap.drawEpiosde(
             "costmap",
             128,
-            host_path[best_id].p[j].x,
-            host_path[best_id].p[j].y,
-            host_path[best_id].p[j+1].x,
-            host_path[best_id].p[j+1].y);
+            host_path[best_path_id].p[j].x,
+            host_path[best_path_id].p[j].y,
+            host_path[best_path_id].p[j+1].x,
+            host_path[best_path_id].p[j+1].y);
     }
 
 
     printf("===========\n");
-    printf("host path %d\n\n", best_id);
+    printf("host path %d\n\n", best_path_id);
 
-    for(int j = 0; j < host_path[best_id].total_size; j++)
+    for(int j = 0; j < host_path[best_path_id].total_size; j++)
     {
         printf("    point: %d\n", j);
-        printf("    x: %d\n", host_path[best_id].p[j].x);
-        printf("    y: %d\n", host_path[best_id].p[j].y);
-        printf("    avrg_cost: %d\n", host_path[best_id].p[j].avrg_cost);
-        printf("    length: %d\n\n", host_path[best_id].p[j].length);
+        printf("    x: %d\n", host_path[best_path_id].p[j].x);
+        printf("    y: %d\n", host_path[best_path_id].p[j].y);
+        printf("    avrg_cost: %d\n", host_path[best_path_id].p[j].avrg_cost);
+        printf("    length: %d\n\n", host_path[best_path_id].p[j].length);
     }
-    printf("    total size: %d\n", host_path[best_id].total_size);
-    printf("    total cost: %d\n", host_path[best_id].total_cost);
+    printf("    total size: %d\n", host_path[best_path_id].total_size);
+    printf("    total cost: %d\n", host_path[best_path_id].total_cost);
     printf("===========\n");
 
     printf("debug:\n");

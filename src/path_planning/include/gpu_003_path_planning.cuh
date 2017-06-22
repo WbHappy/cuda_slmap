@@ -26,6 +26,9 @@ class GpuPathPlanning
     float* dev_debug;
     float* host_debug;
 
+    int best_path_id;
+    int best_path_cost;
+
 public:
     int planner_const_distance_cost;    // Constance cost of traveling one distance unit added to cost from costmap
 
@@ -51,7 +54,9 @@ public:
 
     void display();
 
+    void updateBestPath();
     void displayBestPath();
+
 };
 
 // GPU function to copy path between two pointers

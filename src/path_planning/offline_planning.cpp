@@ -1,14 +1,14 @@
-#include "../include/_robot_planner_maps.cuh"
-#include "../include/_ros_buffor.hpp"
+#include "include/_robot_planner_maps.cuh"
+#include "include/_ros_buffor.hpp"
 
-#include "../include/components_cpu.hpp"
-#include "../include/components_gpu.cuh"
-#include "../include/components_ros.hpp"
+#include "include/components_cpu.hpp"
+#include "include/components_gpu.cuh"
+#include "include/components_ros.hpp"
 
-#include "../include/gpu_000_load_test_map.cuh"
-#include "../include/gpu_001_lidar_mapping.cuh"
-#include "../include/gpu_002_cost_mapping.cuh"
-#include "../include/gpu_003_path_planning.cuh"
+#include "include/gpu_000_load_test_map.cuh"
+#include "include/gpu_001_lidar_mapping.cuh"
+#include "include/gpu_002_cost_mapping.cuh"
+#include "include/gpu_003_path_planning.cuh"
 
 
 
@@ -29,7 +29,7 @@ int main(int argc, char** argv)
 {
 
     // ROS initialization
-    ros::init(argc, argv, "cuda_lidar_mapping");
+    ros::init(argc, argv, "offline_planning");
     ros::NodeHandle nh;
     ros::Rate wait_loop_rate(15);
     ros::Rate main_loop_rate(15);
@@ -39,11 +39,12 @@ int main(int argc, char** argv)
     Stopwatch stopwatch;
 
     // Configureable parameters
-    std::string goal_topic, odom_topic, lidar_enc_topic, lidar_scan_topic;
+    std::string goal_topic, odom_topic, lidar_enc_topic, lidar_scan_topic, path_topic;
     nh.param(node_name + "/goal_topic", goal_topic, std::string("/kalman/simulation/navigation/goal"));
     nh.param(node_name + "/odom_topic", odom_topic, std::string("/kalman/simulation/navigation/odom_ekf"));
     nh.param(node_name + "/lidar_enc_topic", lidar_enc_topic, std::string("/kalman/simulation/encoder/lidar_tower_abs/pose"));
     nh.param(node_name + "/lidar_scan_topic", lidar_scan_topic, std::string("/kalman/simulation/lidar"));
+    nh.param(node_name + "/path_topic", path_topic, std::string("/kalman/simulation/navigation/path"));
 
 
     nh.param(node_name + "/height_scale", _RPM.height_scale, (int) 100);
@@ -83,11 +84,12 @@ int main(int argc, char** argv)
     TemplateSubscriber <std_msgs::Float64> sub_lidar_pose(&nh , lidar_enc_topic, &_ROSBUFF.lidar_pose);
     TemplateSubscriber <sensor_msgs::LaserScan> sub_lidar_scan(&nh , lidar_scan_topic, &_ROSBUFF.laser_scan);
 
+    TemplatePublisher <nav_msgs::Path> pub_path(&nh, path_topic, &_ROSBUFF.path);
 
     stopwatch.Start();
 
     // GLTM.readHeightMapFromFile8("src/map_from_file_planning/_maps/map3.png");
-    GLTM.readCostMapFromFile8("src/map_from_file_planning/_maps/map1.png");
+    GLTM.readCostMapFromFile8("src/path_planning/_maps/map1.png");
 
     stopwatch.Check_n_Reset("Map from file to GPU");
 
@@ -115,10 +117,10 @@ int main(int argc, char** argv)
 
     GLTM.display();
 
+    GPP.updateBestPath();
     GPP.displayBestPath();
 
-
-
+    pub_path.publish();
 
 
     cv::waitKey(0);

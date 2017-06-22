@@ -1,0 +1,3 @@
+<launch>
+    <node name="offline_planning" pkg="cuda_slmap" type="offline_planning" output="screen"/>
+</launch>

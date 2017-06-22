@@ -11,31 +11,25 @@ protected:
     ros::Publisher pub;
 
 public:
-    ros_Message msg;
+    ros_Message* buff_ptr;
 
 public:
-    TemplatePublisher(ros::NodeHandle* nh, std::string topic)
+    TemplatePublisher(ros::NodeHandle* nh, std::string topic, ros_Message *buff_ptr)
     {
         this->nh = nh;
         this->pub = nh->advertise<ros_Message>(topic, 100);
+        this->buff_ptr = buff_ptr;
     }
 
     ~TemplatePublisher(){}
 
     void publish()
     {
-        pub.publish(this->msg);
+        pub.publish(*this->buff_ptr);
     }
 
     void publish(ros_Message msg)
     {
-        this->msg = msg;
-        pub.publish(this->msg);
-    }
-
-    void publish(double data)
-    {
-        this->msg.data = data;
         pub.publish(this->msg);
     }
 };

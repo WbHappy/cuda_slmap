@@ -1,3 +1,0 @@
-<launch>
-    <node name="map_from_file_planning" pkg="cuda_slmap" type="map_from_file_planning" output="screen"/>
-</launch>
