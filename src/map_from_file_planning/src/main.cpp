@@ -65,6 +65,7 @@ int main(int argc, char** argv)
     nh.param(node_name + "/unknown_field_cost", GCM.unknown_field_cost, (int) 1);
     nh.param(node_name + "/costmap_borders_value", GCM.costmap_borders_value, (int) 1000);
 
+    nh.param(node_name + "/planner_const_distance_cost", GPP.planner_const_distance_cost, (int) 1000);
     nh.param(node_name + "/planner_max_iteration", GPP.planner_max_iteration, (int) 1000);
     nh.param(node_name + "/planner_concurrent_paths", GPP.planner_concurrent_paths, (int) 128);
     // nh.param(node_name + "/planner_concurrent_paths", GPP.planner_concurrent_paths, (int) 1);

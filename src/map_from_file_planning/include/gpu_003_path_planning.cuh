@@ -27,6 +27,8 @@ class GpuPathPlanning
     float* host_debug;
 
 public:
+    int planner_const_distance_cost;    // Constance cost of traveling one distance unit added to cost from costmap
+
     int planner_max_iteration;          // Maximum number of planning iterations (divide, optimize, mutate)
 
     int planner_concurrent_paths;       // Number of concurent paths calculated - equal to number of CUDA blocs
@@ -73,6 +75,7 @@ __device__ inline GpuPathPoint generateDividePointRandom_Singlethread(
     const GpuPathPoint *p1,
     const GpuPathPoint *p2,
     const int min_episode_length,
+    const int const_distance_cost,
     const int std_dev,
     const int map_x,
     const int map_y,
@@ -88,6 +91,7 @@ __device__ inline GpuPathPoint generateDividePointLine_Singlethread(
     const GpuPathPoint *p1,
     const GpuPathPoint *p2,
     const int min_episode_length,
+    const int const_distance_cost,
     const int line_index,
     const int map_x,
     const int map_y,
@@ -103,6 +107,7 @@ __device__ inline GpuPathPoint generateMutatePoint_Singlethread(
     const GpuPathPoint *p1,
     const GpuPathPoint *p2,
     const int min_episode_length,
+    const int const_distance_cost,
     const int std_dev,
     const int map_x,
     const int map_y,
@@ -126,7 +131,8 @@ __device__ inline int16_t calcEpisodeAvrgCost_Singlethread(
     const int map_y,
     const GpuPathPoint *p1,
     const GpuPathPoint *p2,
-    const int sampling);
+    const int sampling,
+    const int const_distance_cost);
 
 // Calcualtes cost of traveling via episode
 __device__ inline uint16_t calcEpisodeLength_Singlethread(
@@ -136,6 +142,7 @@ __device__ inline uint16_t calcEpisodeLength_Singlethread(
 //
 __device__ inline void updatePathCost_Multithread(
     GpuPath *path_input,
+    const int const_distance_cost,
     int sid,
     int threads_no
 );
@@ -158,6 +165,7 @@ __device__ inline void dividePath_Multithread(
     uint32_t *new_points_costs,
     curandState_t *curand_state,
     const int min_episode_length,
+    const int const_distance_cost,
     const int std_dev,
     const int sampling,
     const int sid,
@@ -175,6 +183,7 @@ __device__ inline void mutatePath_Multithread(
     uint32_t *new_points_costs,
     curandState_t *curand_state,
     const int min_episode_length,
+    const int const_distance_cost,
     const int std_dev,
     const int sampling,
     const int sid,
@@ -192,6 +201,7 @@ __global__ void pathPlanningKernel(
     const int sampling,
     const int max_iteration,
     const int min_division_length,
+    const int const_distance_cost,
     const int global_seed,
     float *dev_debug);
 
