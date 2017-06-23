@@ -79,6 +79,7 @@ __device__ inline void copyPath_Multithread(
 // GPU function that generates pseudo-random point
 // Reference point pose is betweem two points
 __device__ inline GpuPathPoint generateDividePointRandom_Singlethread(
+    int16_t *heightmap,
     int16_t *costmap,
     const GpuPathPoint *p1,
     const GpuPathPoint *p2,
@@ -95,6 +96,7 @@ __device__ inline GpuPathPoint generateDividePointRandom_Singlethread(
 // GPU function that generates pseudo-random point
 // Reference point pose is betweem two points
 __device__ inline GpuPathPoint generateDividePointLine_Singlethread(
+    int16_t *heightmap,
     int16_t *costmap,
     const GpuPathPoint *p1,
     const GpuPathPoint *p2,
@@ -111,6 +113,7 @@ __device__ inline GpuPathPoint generateDividePointLine_Singlethread(
 // GPU function that generates pseudo-random point
 // Reference point pose is inside point
 __device__ inline GpuPathPoint generateMutatePoint_Singlethread(
+    int16_t *heightmap,
     int16_t *costmap,
     const GpuPathPoint *p1,
     const GpuPathPoint *p2,
@@ -134,6 +137,7 @@ __device__ inline void addPathPoints_Multithread(
 
 // Calcualtes cost of traveling via episode
 __device__ inline int16_t calcEpisodeAvrgCost_Singlethread(
+    int16_t *heightmap,
     int16_t *costmap,
     const int map_x,
     const int map_y,
@@ -164,6 +168,7 @@ __device__ inline int findCheapestThreadPath(
 
 //aqq
 __device__ inline void dividePath_Multithread(
+    int16_t *heightmap,
     int16_t *costmap,
     const int map_x,
     const int map_y,
@@ -182,6 +187,7 @@ __device__ inline void dividePath_Multithread(
 
 //aqq
 __device__ inline void mutatePath_Multithread(
+    int16_t *heightmap,
     int16_t *costmap,
     const int map_x,
     const int map_y,
@@ -201,6 +207,7 @@ __device__ inline void mutatePath_Multithread(
 //aqq
 __global__ void pathPlanningKernel(
     GpuPath* dev_paths,
+    int16_t *heightmap,
     int16_t *costmap,
     const int map_x,
     const int map_y,

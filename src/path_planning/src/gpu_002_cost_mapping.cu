@@ -281,6 +281,7 @@ __device__ void calcCostVariance(
             {
                 float diff = (float) (avrg - smem_hmap[smem_idx + x*shared_dim_y + y]);
                 variance += diff * diff;
+                // variance += abs(diff * diff * diff * diff) / 1024;
             }
         }
     }

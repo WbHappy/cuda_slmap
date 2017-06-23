@@ -29,6 +29,7 @@ int main(int argc, char** argv)
     ros::NodeHandle nh;
     ros::Rate wait_loop_rate(15);
     ros::Rate main_loop_rate(15);
+
     std::string node_name = ros::this_node::getName();
 
     // Stopwatch
@@ -59,13 +60,13 @@ int main(int argc, char** argv)
     nh.param(node_name + "/cmap_refresh_radius_meters", GCM.cmap_refresh_radius_meters, (float) 15);
         GCM.cmap_refresh_radius_pix = (int)(GCM.cmap_refresh_radius_meters * _RPM.map_scale);
     nh.param(node_name + "/cost_mask_radius", GCM.cost_mask_radius, (int) 16);
-    nh.param(node_name + "/unknown_field_cost", GCM.unknown_field_cost, (int) 1);
-    nh.param(node_name + "/costmap_borders_value", GCM.costmap_borders_value, (int) 1000);
+    nh.param(node_name + "/unknown_field_cost", GCM.unknown_field_cost, (int) 8);
+    nh.param(node_name + "/costmap_borders_value", GCM.costmap_borders_value, (int) 2000);
 
     nh.param(node_name + "/planner_const_distance_cost", GPP.planner_const_distance_cost, (int) 10);
     nh.param(node_name + "/planner_max_iteration", GPP.planner_max_iteration, (int) 5);
     nh.param(node_name + "/planner_concurrent_paths", GPP.planner_concurrent_paths, (int) 128);
-    nh.param(node_name + "/planner_cost_sampling", GPP.planner_cost_sampling, (int) 8);
+    nh.param(node_name + "/planner_cost_sampling", GPP.planner_cost_sampling, (int) 4);
     nh.param(node_name + "/planner_min_episode_length", GPP.planner_min_episode_length, (int) 8);
 
 

@@ -11,6 +11,7 @@ struct GpuPathPoint
     __device__ inline uint32_t cost()
     {
         return length * avrg_cost;
+        // return length * avrg_cost * avrg_cost / 1024;
     }
 };
 

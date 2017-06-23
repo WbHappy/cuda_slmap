@@ -2,6 +2,7 @@
 
 __global__ void pathPlanningKernel(
     GpuPath* dev_paths,
+    int16_t *heightmap,
     int16_t *costmap,
     const int map_x,
     const int map_y,
@@ -42,7 +43,7 @@ __global__ void pathPlanningKernel(
     {
         initial_path.p[0] = odom;
         initial_path.p[1] = goal;
-        initial_path.p[1].avrg_cost = calcEpisodeAvrgCost_Singlethread(costmap, map_x, map_y, &initial_path.p[0], &initial_path.p[1], sampling, const_distance_cost);
+        initial_path.p[1].avrg_cost = calcEpisodeAvrgCost_Singlethread(heightmap, costmap, map_x, map_y, &initial_path.p[0], &initial_path.p[1], sampling, const_distance_cost);
         initial_path.p[1].length = calcEpisodeLength_Singlethread(&initial_path.p[0], &initial_path.p[1]);
 
         initial_path.total_size = 2;
@@ -58,6 +59,7 @@ __global__ void pathPlanningKernel(
         int std_dev_mut = 32 / (i+1) / (i+1) + 2;   // Currently UNUSED!
 
         dividePath_Multithread(
+            heightmap,
             costmap,
             map_x,
             map_y,
@@ -82,6 +84,7 @@ __global__ void pathPlanningKernel(
 
 
         mutatePath_Multithread(
+            heightmap,
             costmap,
             map_x,
             map_y,
@@ -120,6 +123,7 @@ __global__ void pathPlanningKernel(
 // Each episode is divided separatley by each threads concurently
 // Best episode division is chosen at the end
 __device__ inline void dividePath_Multithread(
+    int16_t *heightmap,
     int16_t *costmap,
     const int map_x,
     const int map_y,
@@ -160,6 +164,7 @@ __device__ inline void dividePath_Multithread(
             if(sid == 0)
             {
                 thread_points[j+1] =  generateDividePointLine_Singlethread(             // Assign all random points
+                    heightmap,
                     costmap,
                     &path_input->p[i],
                     &path_input->p[i+1],
@@ -175,6 +180,7 @@ __device__ inline void dividePath_Multithread(
             }else{
                 // RANDOMIZING FROM LAST POINT (MIGHT BE RANDOMIZED) TO EPISODE END
                 thread_points[j+1] =  generateDividePointRandom_Singlethread(             // Assign all random points
+                    heightmap,
                     costmap,
                     &thread_points[j],
                     &path_input->p[i+1],
@@ -196,7 +202,7 @@ __device__ inline void dividePath_Multithread(
         // Calculating cost of episode
         for(int j = 0; j < PLANNER_EPISODE_DIVISIONS + 1; j++)
         {
-             thread_points[j + 1].avrg_cost = calcEpisodeAvrgCost_Singlethread(costmap, map_x, map_y, &thread_points[j], &thread_points[j+1], sampling, const_distance_cost);
+             thread_points[j + 1].avrg_cost = calcEpisodeAvrgCost_Singlethread(heightmap, costmap, map_x, map_y, &thread_points[j], &thread_points[j+1], sampling, const_distance_cost);
              thread_points[j + 1].length = calcEpisodeLength_Singlethread(&thread_points[j], &thread_points[j+1]);
              thread_cost += thread_points[j + 1].cost();
              thread_cost += thread_points[j + 1].length * const_distance_cost;  // TODO Duplicated in updatePathCost_Multithread
@@ -224,6 +230,7 @@ __device__ inline void dividePath_Multithread(
 
 // GPU function to perform one iteration of path mutation
 __device__ inline void mutatePath_Multithread(
+    int16_t *heightmap,
     int16_t *costmap,
     const int map_x,
     const int map_y,
@@ -267,6 +274,7 @@ __device__ inline void mutatePath_Multithread(
                 thread_points[j + 1] = path_input->p[i + j + 1];
             }else{
                 thread_points[j + 1] = generateMutatePoint_Singlethread(
+                    heightmap,
                     costmap,
                     &path_input->p[i + j],
                     &path_input->p[i + j + 1],
@@ -289,7 +297,7 @@ __device__ inline void mutatePath_Multithread(
         // Calculating cost of episode
         for(int j = 0; j < PLANNER_EPISODE_MUTATIONS + 1; j++)
         {
-            thread_points[j + 1].avrg_cost = calcEpisodeAvrgCost_Singlethread(costmap, map_x, map_y, &thread_points[j], &thread_points[j+1], sampling, const_distance_cost);
+            thread_points[j + 1].avrg_cost = calcEpisodeAvrgCost_Singlethread(heightmap, costmap, map_x, map_y, &thread_points[j], &thread_points[j+1], sampling, const_distance_cost);
             thread_points[j + 1].length = calcEpisodeLength_Singlethread(&thread_points[j], &thread_points[j+1]);
             thread_cost += thread_points[j + 1].cost();
             thread_cost += thread_points[j + 1].length * const_distance_cost;  // TODO Duplicated in updatePathCost_Multithread
@@ -433,6 +441,7 @@ __device__ inline void copyPath_Multithread(
 }
 
 __device__ inline GpuPathPoint generateDividePointRandom_Singlethread(
+    int16_t *heightmap,
     int16_t *costmap,
     const GpuPathPoint *p1,
     const GpuPathPoint *p2,
@@ -452,7 +461,7 @@ __device__ inline GpuPathPoint generateDividePointRandom_Singlethread(
     // random_point.x = curand(curand_state) % map_x;
     // random_point.y = curand(curand_state) % map_y;
 
-    int std_dev_len = p2->length / DIVISION_STD_DEV_DIVIDER;
+    int std_dev_len = p2->length / DIVISION_STD_DEV_DIVIDER + 1;
 
     // NORMAL DISTRIBUTION
     int i = 0;
@@ -476,12 +485,13 @@ __device__ inline GpuPathPoint generateDividePointRandom_Singlethread(
 
     }while(random_point.length < min_episode_length);
 
-    random_point.avrg_cost = calcEpisodeAvrgCost_Singlethread(costmap, map_x, map_y, p1, p2, sampling, const_distance_cost);
+    random_point.avrg_cost = calcEpisodeAvrgCost_Singlethread(heightmap, costmap, map_x, map_y, p1, p2, sampling, const_distance_cost);
 
     return random_point;
 }
 
 __device__ inline GpuPathPoint generateDividePointLine_Singlethread(
+    int16_t *heightmap,
     int16_t *costmap,
     const GpuPathPoint *p1,
     const GpuPathPoint *p2,
@@ -523,12 +533,13 @@ __device__ inline GpuPathPoint generateDividePointLine_Singlethread(
 
     }while(random_point.length < min_episode_length);
 
-    random_point.avrg_cost = calcEpisodeAvrgCost_Singlethread(costmap, map_x, map_y, p1, p2, sampling, const_distance_cost);
+    random_point.avrg_cost = calcEpisodeAvrgCost_Singlethread(heightmap, costmap, map_x, map_y, p1, p2, sampling, const_distance_cost);
 
     return random_point;
 }
 
 __device__ inline GpuPathPoint generateMutatePoint_Singlethread(
+    int16_t *heightmap,
     int16_t *costmap,
     const GpuPathPoint *p1,
     const GpuPathPoint *p2,
@@ -548,7 +559,7 @@ __device__ inline GpuPathPoint generateMutatePoint_Singlethread(
     // random_point.x = curand(curand_state) % map_x;
     // random_point.y = curand(curand_state) % map_y;
 
-    int std_dev_len = p2->length / MUTATION_STD_DEV_DIVIDER;
+    int std_dev_len = p2->length / MUTATION_STD_DEV_DIVIDER + 1;
 
     // NORMAL DISTRIBUTION
     int i = 0;
@@ -572,7 +583,7 @@ __device__ inline GpuPathPoint generateMutatePoint_Singlethread(
 
     }while(random_point.length < min_episode_length);
 
-    random_point.avrg_cost = calcEpisodeAvrgCost_Singlethread(costmap, map_x, map_y, p1, p2, sampling, const_distance_cost);
+    random_point.avrg_cost = calcEpisodeAvrgCost_Singlethread(heightmap, costmap, map_x, map_y, p1, p2, sampling, const_distance_cost);
 
     return random_point;
 
@@ -629,6 +640,7 @@ __device__ inline void addPathPoints_Multithread(
 
 // Calcualtes cost of traveling via episode
 __device__ inline int16_t calcEpisodeAvrgCost_Singlethread(
+    int16_t *heightmap,
     int16_t *costmap,
     const int map_x,
     const int map_y,
@@ -728,6 +740,7 @@ void GpuPathPlanning::executeKernel()
 
     pathPlanningKernel<<<planner_concurrent_paths, PLANNER_THREADS_PER_PATH>>>(
                             dev_path,
+                            _rpm->dev_heightmap.data,
                             _rpm->dev_costmap.data,
                             _rpm->dev_costmap.size_x,
                             _rpm->dev_costmap.size_y,
