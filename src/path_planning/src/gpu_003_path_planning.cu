@@ -796,9 +796,28 @@ void GpuPathPlanning::display()
 
 }
 
+// CPU function that transforms path planned in GPU to Real World coordiantes system
+geometry_msgs::Point GpuPathPlanning::pointMapToWorld(GpuPathPoint map_point)
+{
+
+    geometry_msgs::Point real_point;
+
+    int delta_map_x = map_point.x - _rpm->map_offset_pix;
+    int delta_map_y = map_point.y - _rpm->map_offset_pix;
+
+    float point_orient = atan2(delta_map_y, delta_map_x);
+    float point_dist = sqrt(delta_map_x*delta_map_x + delta_map_y*delta_map_y);
+
+    real_point.x = -sin(point_orient - _rpm->map_orient) * point_dist / _rpm->map_scale;
+    real_point.y = cos(point_orient - _rpm->map_orient) * point_dist / _rpm->map_scale;
+
+    return real_point;
+}
+
 void GpuPathPlanning::updateBestPath()
 {
 
+    // Choose the best path
     this->best_path_id = 0;
     this->best_path_cost = host_path[0].total_cost;
 
@@ -811,7 +830,25 @@ void GpuPathPlanning::updateBestPath()
         }
     }
 
-    this->_ros->updatePath(&host_path[best_path_id]);
+    // Prepare path buffor for update
+    _ros->path.header.stamp = ros::Time::now();
+    _ros->path.poses.clear();
+
+    // Assign best path to RobotPlannerMaps
+    geometry_msgs::PoseStamped path_point;
+    path_point.header.stamp = _ros->path.header.stamp;
+    path_point.header.seq = 0;
+    path_point.header.frame_id = "/odom";
+
+    for(int i = 0; i < host_path->total_size; i++)
+    {
+        path_point.header.seq = i;
+        path_point.pose.position = pointMapToWorld(host_path[best_path_id].p[i]);
+
+        _ros->path.poses.push_back(path_point);
+    }
+
+    _ros->path.header.seq++;
 }
 
 

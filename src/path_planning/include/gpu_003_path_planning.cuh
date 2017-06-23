@@ -57,6 +57,9 @@ public:
     void updateBestPath();
     void displayBestPath();
 
+    // CPU function that transforms path planned in GPU to Real World coordiantes system
+    geometry_msgs::Point pointMapToWorld(GpuPathPoint map_point);
+
 };
 
 // GPU function to copy path between two pointers

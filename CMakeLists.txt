@@ -42,20 +42,20 @@ cuda_add_executable(offline_planning
     )
 target_link_libraries(offline_planning ${catkin_LIBRARIES})
 
-# cuda_add_executable(online_planning
-#     src/path_planning/online_planning.cpp
-#     src/path_planning/src/_robot_planner_maps.cu
-#     src/path_planning/src/gpu_000_load_test_map.cu
-#     src/path_planning/src/gpu_001_lidar_mapping.cu
-#     src/path_planning/src/gpu_002_cost_mapping.cu
-#     src/path_planning/src/gpu_003_path_planning.cu
-#     src/path_planning/components_cpu/src/cpu_map_i16.cpp
-#     src/path_planning/components_cpu/src/cpu_map_ui16.cpp
-#     src/path_planning/components_cpu/src/cpu_map_ui32.cpp
-#     src/path_planning/components_cpu/src/ht_matrix.cpp
-#     src/path_planning/components_gpu/src/gpu_errchk.cu
-#     src/path_planning/components_gpu/src/gpu_map_i16.cu
-#     src/path_planning/components_gpu/src/gpu_map_ui16.cu
-#     src/path_planning/components_gpu/src/gpu_map_ui32.cu
-#     )
-# target_link_libraries(online_planning ${catkin_LIBRARIES})
+cuda_add_executable(online_planning
+    src/path_planning/online_planning.cpp
+    src/path_planning/src/_robot_planner_maps.cu
+    src/path_planning/src/gpu_000_load_test_map.cu
+    src/path_planning/src/gpu_001_lidar_mapping.cu
+    src/path_planning/src/gpu_002_cost_mapping.cu
+    src/path_planning/src/gpu_003_path_planning.cu
+    src/path_planning/components_cpu/src/cpu_map_i16.cpp
+    src/path_planning/components_cpu/src/cpu_map_ui16.cpp
+    src/path_planning/components_cpu/src/cpu_map_ui32.cpp
+    src/path_planning/components_cpu/src/ht_matrix.cpp
+    src/path_planning/components_gpu/src/gpu_errchk.cu
+    src/path_planning/components_gpu/src/gpu_map_i16.cu
+    src/path_planning/components_gpu/src/gpu_map_ui16.cu
+    src/path_planning/components_gpu/src/gpu_map_ui32.cu
+    )
+target_link_libraries(online_planning ${catkin_LIBRARIES})

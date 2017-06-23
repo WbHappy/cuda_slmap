@@ -98,7 +98,7 @@ __device__ inline Point3F32 dkLidarToScan(
     float a5);
 
 // GPU function to transform given point from Real World into point on GPU Map
-__device__ inline Point2I32 mapRealToGPU(
+__device__ inline Point2I32 pointWorldToMap(
     float point_x,
     float point_y,
     float map_orient,

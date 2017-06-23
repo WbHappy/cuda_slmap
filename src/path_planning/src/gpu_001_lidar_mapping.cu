@@ -28,7 +28,7 @@ __global__ void lidarMappingKernel(
     Point3F32 point_world = dkLidarToScan(&dk_cpu, th5, a5);
 
     // POSITION OF SCAN POINT ON GPU HEIGHTMAP
-    Point2I32 point_map = mapRealToGPU(point_world.x, point_world.y, map_orient, map_scale, map_offset_pix);
+    Point2I32 point_map = pointWorldToMap(point_world.x, point_world.y, map_orient, map_scale, map_offset_pix);
 
     // CHECKING IF SCAN POINT IS INSIDE GPU MAP
     if(point_map.x >=0 && point_map.x < map_x && point_map.y >=0 && point_map.y < map_y)
@@ -68,12 +68,12 @@ __device__ inline Point3F32 dkLidarToScan(const HTMatrixLidarCPU* dk_cpu, float 
 }
 
 // GPU function to transform given point from Real World into point on GPU Map
-__device__ inline Point2I32 mapRealToGPU(float point_x, float point_y, float map_orient, float map_scale, float map_offset_pix)
+__device__ inline Point2I32 pointWorldToMap(float world_pose_x, float world_pose_y, float map_orient, float map_scale, float map_offset_pix)
 {
 
     Point2I32 map_pose;
-    float point_orient = atan2f(point_y, point_x);
-    float point_dist = sqrtf(point_x*point_x + point_y*point_y);
+    float point_orient = atan2f(world_pose_y, world_pose_x);
+    float point_dist = sqrtf(world_pose_x*world_pose_x + world_pose_y*world_pose_y);
 
     map_pose.x = (int) (sinf(map_orient - point_orient) * point_dist * map_scale + map_offset_pix);
     map_pose.y = (int) (cosf(map_orient - point_orient) * point_dist * map_scale + map_offset_pix);

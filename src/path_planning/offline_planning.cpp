@@ -44,7 +44,7 @@ int main(int argc, char** argv)
     nh.param(node_name + "/odom_topic", odom_topic, std::string("/kalman/simulation/navigation/odom_ekf"));
     nh.param(node_name + "/lidar_enc_topic", lidar_enc_topic, std::string("/kalman/simulation/encoder/lidar_tower_abs/pose"));
     nh.param(node_name + "/lidar_scan_topic", lidar_scan_topic, std::string("/kalman/simulation/lidar"));
-    nh.param(node_name + "/path_topic", path_topic, std::string("/kalman/simulation/navigation/path"));
+    nh.param(node_name + "/path_topic", path_topic, std::string("/kalman/simulation/navigation/path_local"));
 
 
     nh.param(node_name + "/height_scale", _RPM.height_scale, (int) 100);

@@ -35,12 +35,12 @@ int main(int argc, char** argv)
     Stopwatch stopwatch;
 
     // Configureable parameters
-    std::string goal_topic, odom_topic, lidar_enc_topic, lidar_scan_topic;
+    std::string goal_topic, odom_topic, lidar_enc_topic, lidar_scan_topic, path_topic;
     nh.param(node_name + "/goal_topic", goal_topic, std::string("/kalman/simulation/navigation/goal"));
     nh.param(node_name + "/odom_topic", odom_topic, std::string("/kalman/simulation/navigation/odom_ekf"));
     nh.param(node_name + "/lidar_enc_topic", lidar_enc_topic, std::string("/kalman/simulation/encoder/lidar_tower_abs/pose"));
     nh.param(node_name + "/lidar_scan_topic", lidar_scan_topic, std::string("/kalman/simulation/lidar"));
-    nh.param(node_name + "/path_topic", lidar_scan_topic, std::string("/kalman/simulation/navigation/path"));
+    nh.param(node_name + "/path_topic", path_topic, std::string("/kalman/simulation/navigation/path_local"));
 
 
     nh.param(node_name + "/height_scale", _RPM.height_scale, (int) 100);
@@ -62,17 +62,17 @@ int main(int argc, char** argv)
     nh.param(node_name + "/unknown_field_cost", GCM.unknown_field_cost, (int) 1);
     nh.param(node_name + "/costmap_borders_value", GCM.costmap_borders_value, (int) 1000);
 
-    nh.param(node_name + "/planner_const_distance_cost", GPP.planner_const_distance_cost, (int) 1000);
-    nh.param(node_name + "/planner_max_iteration", GPP.planner_max_iteration, (int) 1000);
+    nh.param(node_name + "/planner_const_distance_cost", GPP.planner_const_distance_cost, (int) 10);
+    nh.param(node_name + "/planner_max_iteration", GPP.planner_max_iteration, (int) 5);
     nh.param(node_name + "/planner_concurrent_paths", GPP.planner_concurrent_paths, (int) 128);
-    nh.param(node_name + "/planner_cost_sampling", GPP.planner_cost_sampling, (int) 2);
+    nh.param(node_name + "/planner_cost_sampling", GPP.planner_cost_sampling, (int) 8);
     nh.param(node_name + "/planner_min_episode_length", GPP.planner_min_episode_length, (int) 8);
 
 
 
     // ROS Communication
     TemplateSubscriber <geometry_msgs::PoseStamped> sub_goal(&nh , goal_topic, &_ROSBUFF.goal);
-    TemplateSubscriber <nav_msgs::Odometry> sub_odom(&nh , odom_topic, &_ROSBUFF.odom, updateRobotPoseOnMap);
+    TemplateSubscriber <nav_msgs::Odometry> sub_odom(&nh , odom_topic, &_ROSBUFF.odom);
     TemplateSubscriber <std_msgs::Float64> sub_lidar_pose(&nh , lidar_enc_topic, &_ROSBUFF.lidar_pose);
     TemplateSubscriber <sensor_msgs::LaserScan> sub_lidar_scan(&nh , lidar_scan_topic, &_ROSBUFF.laser_scan);
 
@@ -81,16 +81,7 @@ int main(int argc, char** argv)
 
     stopwatch.Start();
 
-    // GLTM.readHeightMapFromFile8("src/map_from_file_planning/_maps/map3.png");
-    GLTM.readCostMapFromFile8("src/map_from_file_planning/_maps/map1.png");
-
     stopwatch.Check_n_Reset("Map from file to GPU");
-
-    _RPM.setCustomRobotPoseOnMap(10, 60);
-    _RPM.setCustomGoalPoseOnMap(245, 60);
-
-    _RPM.host_costmap.info();
-
 
     GPP.allocateMemory();               stopwatch.Check_n_Reset("Planner memory allocation");
 
@@ -138,7 +129,7 @@ int main(int argc, char** argv)
         GPP.updateBestPath();
         // GPP.displayBestPath();
 
-        _RPM.publishBestPath();
+        pub_path.publish();
 
         main_loop_rate.sleep();
     }

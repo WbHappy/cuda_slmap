@@ -72,7 +72,7 @@ void _RobotPlannerMaps::resizeMaps(float target_east, float target_north)
     allocateMaps(target_east, target_north);
 }
 
-// Mirrored from __device__ mapRealToGPU()
+// Mirrored from __device__ pointWorldToMap()
 void _RobotPlannerMaps::updateRobotPoseOnMap(float point_x, float point_y)
 {
     float point_orient = atan2f(point_y, point_x);
