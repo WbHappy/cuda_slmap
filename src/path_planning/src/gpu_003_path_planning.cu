@@ -52,7 +52,7 @@ __global__ void pathPlanningKernel(
         divided_path.total_cost = 0;
     }
 
-    for(int i = 0; i < PLANNER_MAX_ITERATIONS; i++)
+    for(int i = 0; i < max_iteration; i++)
     {
         int std_dev_div = 128 / (i+1) / (i+1) + 8;  // Currently UNUSED!
         int std_dev_mut = 32 / (i+1) / (i+1) + 2;   // Currently UNUSED!
@@ -98,9 +98,10 @@ __global__ void pathPlanningKernel(
             threads_no,
             dev_debug);
 
-            __syncthreads();
+        __syncthreads();
 
-            copyPath_Multithread(&initial_path, &divided_path, sid, threads_no);
+        copyPath_Multithread(&initial_path, &divided_path, sid, threads_no);
+
         __syncthreads();
 
     }
